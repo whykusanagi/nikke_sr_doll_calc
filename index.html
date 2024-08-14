@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NIKKE SR Doll Estimation</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  /* Basic styling for the chart container and slider */
+  #chartContainer {
+    width: 800px; /* Adjust as needed */
+    margin: 20px auto;
+  }
+
+  #phaseSlider {
+    width: 100%;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+  <div id="chartContainer">
+    <canvas id="levelingChart"></canvas>
+    <label for="phaseSlider">Select Phase:</label>
+    <input type="range" min="1" max="15" value="15" id="phaseSlider">
+    <span id="phaseValue">15</span>
+  </div>
+
+  <script>
+    // Data from your table
+    const levelingData = {
+      labels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      datasets: [
+        {
+          label: "Cumulative Exp",
+          data: [3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000, 27000, 30000, 33000, 36000, 39000, 42000, 45000],
+          borderColor: "rgba(255, 99, 132, 1)", // Red
+          fill: false,
+          type: 'line',
+          yAxisID: 'y1'
+        },
+        {
+          label: "Blue Kits",
+          data: [150, 300, 450, 600, 750, 900, 1050, 1200, 1350, 1500, 1650, 1800, 1950, 2100, 2250],
+          backgroundColor: "rgba(54, 162, 235, 0.5)",
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1
+        },
+        {
+          label: "Purple Kits",
+          data: [60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900],
+          backgroundColor: "rgba(153, 102, 255, 0.5)",
+          borderColor: "rgba(153, 102, 255, 1)",
+          borderWidth: 1
+        },
+        {
+          label: "Gold Kits",
+          data: [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 390, 420, 450],
+          backgroundColor: "rgba(255, 206, 86, 0.5)",
+          borderColor: "rgba(255, 206, 86, 1)",
+          borderWidth: 1
+        }
+      ]
+    };
+
+    // Get the canvas element and other elements
+    const ctx = document.getElementById("levelingChart").getContext("2d");
+    const phaseSlider = document.getElementById("phaseSlider");
+    const phaseValueDisplay = document.getElementById("phaseValue");
+
+    // Initialize an empty chart variable
+    let levelingChart;
+
+    function debounce(func, delay) {
+      let timeoutId;
+      return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    const debouncedUpdateChart = debounce(() => {
+      const selectedPhase = parseInt(phaseSlider.value);
+      phaseValueDisplay.textContent = selectedPhase;
+
+      // Create a copy of the relevant data for updating
+      const updatedData = {
+        labels: levelingData.labels.slice(0, selectedPhase),
+        datasets: levelingData.datasets.map(originalDataset => ({
+          ...originalDataset,
+          data: originalDataset.data.slice(0, selectedPhase)
+        }))
+      };
+
+      // Destroy the existing chart if it exists
+      if (levelingChart) {
+        levelingChart.destroy();
+      }
+
+      // Create a new chart with the updated data and reapply tooltip configuration
+      levelingChart = new Chart(ctx, {
+        type: "bar",
+        data: updatedData,
+        options: {
+          plugins: {
+            // Add the title configuration
+            title: {
+              display: true,
+              text: 'NIKKE SR Doll Estimation' 
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const label = context.dataset.label;
+                  const value = context.parsed.y;
+                  return `${label}: ${value.toLocaleString()}`;
+                }
+              }
+            },
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: {
+                  size: 12
+                }
+              }
+            },
+            animation: {
+              onComplete: () => {
+                // Re-enable tooltips after initial render
+                levelingChart.options.plugins.tooltip.enabled = true;
+                // Trigger initial update only if the slider is at its max value AND the chart hasn't been updated yet
+                if (phaseSlider.value === phaseSlider.max && !levelingChart.hasBeenUpdated) {
+                  debouncedUpdateChart();
+                  levelingChart.hasBeenUpdated = true; // Mark the chart as updated
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Phase"
+              },
+              ticks: {
+                // Start labels from 1 instead of 0
+                callback: (value) => parseInt(value) + 1 
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: "Kits"
+              },
+              position: 'left',
+              ticks: {
+                callback: (value) => value.toLocaleString()
+              }
+            },
+            y1: {
+              title: {
+                display: true,
+                text: "Cumulative Exp"
+              },
+              position: 'right',
+              ticks: {
+                callback: (value) => value.toLocaleString()
+              },
+              grid: {
+                drawOnChartArea: false
+              }
+            }
+          }
+        }
+      });
+
+      // Temporarily disable tooltips during initial render
+      levelingChart.options.plugins.tooltip.enabled = false;
+
+    }, 300); // Adjust the debounce delay as needed
+
+    phaseSlider.addEventListener("input", debouncedUpdateChart);
+  </script>
+</body>
+</html>
+
